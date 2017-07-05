@@ -14,14 +14,17 @@ $.fn.stick_in_parent = (opts={}) ->
     recalc_every
     parent: parent_selector
     offset_top
+    offset_bottom
     spacer: manual_spacer
     bottoming: enable_bottoming
+    stick_to_bottom
   } = opts
 
   win_height = win.height()
   doc_height = doc.height()
 
   offset_top ?= 0
+  offset_bottom ?= 0
   parent_selector ?= undefined
   inner_scrolling ?= true
   sticky_class ?= "is_stuck"
@@ -93,9 +96,14 @@ $.fn.stick_in_parent = (opts={}) ->
           restore = true
 
         top = elm.offset().top - (parseInt(elm.css("margin-top"), 10) or 0) - offset_top
-
+        bottom = elm.offset().top+height - (parseInt(elm.css("margin-bottom"), 10) or 0) + offset_bottom
         height = elm.outerHeight true
 
+        if stick_to_bottom
+          scroll_trigger = bottom-win_height
+        else
+          scroll_trigger = top
+        
         el_float = elm.css "float"
         spacer.css({
           width: outer_width elm
@@ -112,7 +120,10 @@ $.fn.stick_in_parent = (opts={}) ->
       return if height == parent_height
 
       last_pos = undefined
-      offset = offset_top
+      if stick_to_bottom
+        offset = offset_bottom
+      else
+        offset = offset_top
 
       recalc_counter = recalc_every
 
@@ -138,19 +149,26 @@ $.fn.stick_in_parent = (opts={}) ->
 
         if fixed
           if enable_bottoming
-            will_bottom = scroll + height + offset > parent_height + parent_top
+            if stick_to_bottom
+              will_bottom = scroll + win_height + offset > parent_height + parent_top
+            else
+              will_bottom = scroll + height + offset > parent_height + parent_top
 
             # unbottom
             if bottomed && !will_bottom
               bottomed = false
-              elm.css({
+              new_css = {
                 position: "fixed"
                 bottom: ""
                 top: offset
-              }).trigger("sticky_kit:unbottom")
+              }
+              if stick_to_bottom
+                new_css.top = ""
+                new_css.bottom = offset
+              elm.css(new_css).trigger("sticky_kit:unbottom")
 
           # unfixing
-          if scroll < top
+          if scroll < scroll_trigger
             fixed = false
             offset = offset_top
 
@@ -182,13 +200,15 @@ $.fn.stick_in_parent = (opts={}) ->
 
         else
           # fixing
-          if scroll > top
+          if scroll > scroll_trigger
             fixed = true
             css = {
               position: "fixed"
               top: offset
             }
-
+            if stick_to_bottom
+              css.top = ""
+              css.bottom = offset_bottom
             css.width = if elm.css("box-sizing") == "border-box"
               elm.outerWidth() + "px"
             else
@@ -207,7 +227,12 @@ $.fn.stick_in_parent = (opts={}) ->
         # this is down here because we can fix and bottom in same step when
         # scrolling huge
         if fixed && enable_bottoming
-          will_bottom ?= scroll + height + offset > parent_height + parent_top
+          if stick_to_bottom
+            bottom_trigger = scroll + win_height > parent_height + parent_top
+          else
+            bottom_trigger = scroll + height + offset > parent_height + parent_top
+          
+          will_bottom ?= bottom_trigger
 
           # bottomed
           if !bottomed && will_bottom
@@ -217,12 +242,14 @@ $.fn.stick_in_parent = (opts={}) ->
               parent.css {
                 position: "relative"
               }
-
-            elm.css({
+            new_css = {
               position: "absolute"
               bottom: padding_bottom
               top: "auto"
-            }).trigger("sticky_kit:bottom")
+            }
+            if stick_to_bottom
+              new_css.bottom = offset_bottom
+            elm.css(new_css).trigger("sticky_kit:bottom")
 
       recalc_and_tick = ->
         recalc()
