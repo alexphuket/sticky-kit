@@ -58,6 +58,8 @@ $.fn.stick_in_parent = (opts={}) ->
 
       fixed = false
       bottomed = false
+      scroll_trigger = top
+      
       spacer = if manual_spacer?
         manual_spacer && elm.closest manual_spacer
       else
@@ -101,9 +103,7 @@ $.fn.stick_in_parent = (opts={}) ->
 
         if stick_to_bottom
           scroll_trigger = bottom-win_height
-        else
-          scroll_trigger = top
-        
+          
         el_float = elm.css "float"
         spacer.css({
           width: outer_width elm
